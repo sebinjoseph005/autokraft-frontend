@@ -29,29 +29,33 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
 
   useEffect(() => {
     if (!isOpen) {
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        pincode: '',
-        city: '',
-        paymentScreenshot: null
-      });
-      setPreviewImage(null);
-      setOrderSuccess(false);
-      setErrorMessage('');
-      setFormErrors({
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        pincode: '',
-        city: '',
-        paymentScreenshot: ''
-      });
+      resetForm();
     }
   }, [isOpen]);
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      pincode: '',
+      city: '',
+      paymentScreenshot: null
+    });
+    setPreviewImage(null);
+    setOrderSuccess(false);
+    setErrorMessage('');
+    setFormErrors({
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      pincode: '',
+      city: '',
+      paymentScreenshot: ''
+    });
+  };
 
   const validateField = (name, value) => {
     let error = '';
@@ -89,7 +93,6 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
     
-    // Clear any existing error when user starts typing
     if (formErrors[id]) {
       setFormErrors(prev => ({ ...prev, [id]: '' }));
     }
@@ -98,10 +101,20 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type and size
+      if (!file.type.match('image.*')) {
+        setFormErrors(prev => ({ ...prev, paymentScreenshot: 'Only image files are allowed' }));
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setFormErrors(prev => ({ ...prev, paymentScreenshot: 'File size must be less than 5MB' }));
+        return;
+      }
+
       setFormData(prev => ({ ...prev, paymentScreenshot: file }));
       setFormErrors(prev => ({ ...prev, paymentScreenshot: '' }));
       
-      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result);
@@ -120,7 +133,6 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
     const errors = {};
     let isValid = true;
 
-    // Only validate required fields
     const requiredFields = ['name', 'email', 'phone', 'paymentScreenshot'];
     requiredFields.forEach(key => {
       const error = validateField(key, formData[key]);
@@ -163,25 +175,40 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
         image: item.image
       }))));
 
-      // Updated backend URL - replace with your actual backend URL
-      const backendUrl = 'https://autokraft-backend-production.up.railway.app'; // or 'https://your-backend-url.onrender.com/api/orders'
+      // Using HTTPS endpoint from environment variables
+      const backendUrl = process.env.REACT_APP_API_URL || 'https://autokraft-backend-production.up.railway.app/api/orders';
       
       const response = await fetch(backendUrl, {
         method: 'POST',
         body: formDataToSend,
+        // Ensure credentials are included if needed
+        credentials: 'include',
+        headers: {
+          // Add any required headers here
+        }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to place order. Please check your details and try again.');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || 
+          errorData.error || 
+          `Server responded with status ${response.status}`
+        );
       }
 
       const result = await response.json();
       console.log('Order created:', result);
       setOrderSuccess(true);
+      
+      // Clear cart after successful order
+      localStorage.removeItem('cart');
     } catch (error) {
       console.error('Checkout error:', error);
-      setErrorMessage(error.message || 'There was an error processing your order. Please try again.');
+      setErrorMessage(
+        error.message || 
+        'There was an error processing your order. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -199,6 +226,7 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
             <h2>Order Placed Successfully!</h2>
             <p>Thank you for your order, {formData.name}!</p>
             <p>Your order total is ₹{cartTotal.toLocaleString('en-IN')}.</p>
+            <p>We'll contact you shortly with order confirmation.</p>
             <button onClick={closeModal} className="submit-order">
               Close
             </button>
@@ -208,120 +236,141 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
             <h2>Checkout</h2>
             {errorMessage && <div className="error-message">{errorMessage}</div>}
             <form onSubmit={handleSubmit} noValidate encType="multipart/form-data">
-              <div className="form-group">
-                <label htmlFor="name">Full Name <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  id="name" 
-                  value={formData.name}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  required 
-                  className={formErrors.name ? 'error' : ''}
-                />
-                {formErrors.name && <span className="field-error">{formErrors.name}</span>}
+              <div className="form-section">
+                <h3>Contact Information</h3>
+                <div className="form-group">
+                  <label htmlFor="name">Full Name <span className="required">*</span></label>
+                  <input 
+                    type="text" 
+                    id="name" 
+                    value={formData.name}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    required 
+                    className={formErrors.name ? 'error' : ''}
+                  />
+                  {formErrors.name && <span className="field-error">{formErrors.name}</span>}
+                </div>
+                <div className="form-group">
+                  <label htmlFor="email">Email <span className="required">*</span></label>
+                  <input 
+                    type="email" 
+                    id="email" 
+                    value={formData.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    required 
+                    className={formErrors.email ? 'error' : ''}
+                  />
+                  {formErrors.email && <span className="field-error">{formErrors.email}</span>}
+                </div>
+                <div className="form-group">
+                  <label htmlFor="phone">Phone Number <span className="required">*</span></label>
+                  <input 
+                    type="tel" 
+                    id="phone" 
+                    value={formData.phone}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    required 
+                    className={formErrors.phone ? 'error' : ''}
+                  />
+                  {formErrors.phone && <span className="field-error">{formErrors.phone}</span>}
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="email">Email <span className="required">*</span></label>
-                <input 
-                  type="email" 
-                  id="email" 
-                  value={formData.email}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  required 
-                  className={formErrors.email ? 'error' : ''}
-                />
-                {formErrors.email && <span className="field-error">{formErrors.email}</span>}
-              </div>
-              <div className="form-group">
-                <label htmlFor="phone">Phone Number <span className="required">*</span></label>
-                <input 
-                  type="tel" 
-                  id="phone" 
-                  value={formData.phone}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  required 
-                  className={formErrors.phone ? 'error' : ''}
-                />
-                {formErrors.phone && <span className="field-error">{formErrors.phone}</span>}
-              </div>
-              <div className="form-group">
-                <label htmlFor="address">Address</label>
-                <textarea 
-                  id="address" 
-                  value={formData.address}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  className={formErrors.address ? 'error' : ''}
-                  placeholder="Enter address"
-                />
-                {formErrors.address && <span className="field-error">{formErrors.address}</span>}
-              </div>
-              <div className="form-group">
-                <label htmlFor="pincode">Pincode</label>
-                <input 
-                  type="text" 
-                  id="pincode" 
-                  value={formData.pincode}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  className={formErrors.pincode ? 'error' : ''}
-                  placeholder="Enter pincode"
-                />
-                {formErrors.pincode && <span className="field-error">{formErrors.pincode}</span>}
-              </div>
-              <div className="form-group">
-                <label htmlFor="city">City</label>
-                <input 
-                  type="text" 
-                  id="city" 
-                  value={formData.city}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  className={formErrors.city ? 'error' : ''}
-                  placeholder="Enter city"
-                />
-                {formErrors.city && <span className="field-error">{formErrors.city}</span>}
+
+              <div className="form-section">
+                <h3>Shipping Information</h3>
+                <div className="form-group">
+                  <label htmlFor="address">Address</label>
+                  <textarea 
+                    id="address" 
+                    value={formData.address}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    className={formErrors.address ? 'error' : ''}
+                    placeholder="Enter full address with street, building, etc."
+                  />
+                  {formErrors.address && <span className="field-error">{formErrors.address}</span>}
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="pincode">Pincode</label>
+                    <input 
+                      type="text" 
+                      id="pincode" 
+                      value={formData.pincode}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      className={formErrors.pincode ? 'error' : ''}
+                      placeholder="Enter pincode"
+                    />
+                    {formErrors.pincode && <span className="field-error">{formErrors.pincode}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="city">City</label>
+                    <input 
+                      type="text" 
+                      id="city" 
+                      value={formData.city}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      className={formErrors.city ? 'error' : ''}
+                      placeholder="Enter city"
+                    />
+                    {formErrors.city && <span className="field-error">{formErrors.city}</span>}
+                  </div>
+                </div>
               </div>
               
               <div className="payment-section">
                 <h3>Payment Method</h3>
-                <p>Please transfer ₹{cartTotal.toLocaleString('en-IN')} to our GPay account:</p>
-                
-                <div className="gpay-instructions">
-                  <div className="gpay-qr-container">
-                    <img 
-                      src="assets/images/gpay-qr.jpg" 
-                      alt="GPay QR Code" 
-                      className="gpay-qr-code"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        document.querySelector('.gpay-fallback').style.display = 'block';
-                      }}
-                    />
-                    <div className="gpay-fallback" style={{ display: 'none' }}>
-                      <p>GPay Number: 8075875280</p>
-                      <p>Name: Your Business Name</p>
+                <div className="payment-instructions">
+                  <p>Total Amount: <strong>₹{cartTotal.toLocaleString('en-IN')}</strong></p>
+                  <p>Please transfer the amount to our GPay/UPI account:</p>
+                  
+                  <div className="payment-details">
+                    <div className="payment-qr-container">
+                      <img 
+                        src="https://your-secure-domain.com/assets/images/gpay-qr.jpg" 
+                        alt="GPay QR Code" 
+                        className="payment-qr-code"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          document.querySelector('.payment-fallback').style.display = 'block';
+                        }}
+                      />
+                      <div className="payment-fallback" style={{ display: 'none' }}>
+                        <p><strong>UPI ID:</strong> yourbusiness@upi</p>
+                        <p><strong>Phone:</strong> +91 9876543210</p>
+                        <p><strong>Name:</strong> Your Business Name</p>
+                      </div>
                     </div>
+                    <p className="payment-note">
+                      After payment, please upload the screenshot below for verification.
+                    </p>
                   </div>
-                  <p className="payment-note">
-                    After payment, please upload the screenshot below for verification.
-                  </p>
                 </div>
                 
                 <div className="form-group">
-                  <label htmlFor="paymentScreenshot">Upload Payment Screenshot <span className="required">*</span></label>
-                  <input 
-                    type="file" 
-                    id="paymentScreenshot"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/*"
-                    required
-                    className={formErrors.paymentScreenshot ? 'error' : ''}
-                  />
+                  <label htmlFor="paymentScreenshot">Payment Proof <span className="required">*</span></label>
+                  <div className="file-upload-wrapper">
+                    <input 
+                      type="file" 
+                      id="paymentScreenshot"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      required
+                      className={formErrors.paymentScreenshot ? 'error' : ''}
+                    />
+                    <label htmlFor="paymentScreenshot" className="file-upload-label">
+                      {formData.paymentScreenshot ? 'Change File' : 'Choose File'}
+                    </label>
+                    {formData.paymentScreenshot && (
+                      <span className="file-name">{formData.paymentScreenshot.name}</span>
+                    )}
+                  </div>
                   {formErrors.paymentScreenshot && (
                     <span className="field-error">{formErrors.paymentScreenshot}</span>
                   )}
@@ -333,13 +382,28 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
                 </div>
               </div>
               
-              <button 
-                type="submit" 
-                className="submit-order"
-                disabled={isSubmitting || cart.length === 0}
-              >
-                {isSubmitting ? 'Processing...' : 'Place Order'}
-              </button>
+              <div className="form-actions">
+                <button 
+                  type="button" 
+                  className="cancel-button"
+                  onClick={closeModal}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="submit-order"
+                  disabled={isSubmitting || cart.length === 0}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="spinner"></span>
+                      Processing...
+                    </>
+                  ) : 'Place Order'}
+                </button>
+              </div>
             </form>
           </>
         )}
