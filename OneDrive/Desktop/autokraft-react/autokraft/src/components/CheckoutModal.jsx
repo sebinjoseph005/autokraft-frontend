@@ -164,7 +164,7 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
       }))));
 
       // Updated backend URL - replace with your actual backend URL
-      const backendUrl = 'https://your-backend-url.vercel.app/api/orders'; // or 'https://your-backend-url.onrender.com/api/orders'
+      const backendUrl = 'https://autokraft-backend-production.up.railway.app'; // or 'https://your-backend-url.onrender.com/api/orders'
       
       const response = await fetch(backendUrl, {
         method: 'POST',
