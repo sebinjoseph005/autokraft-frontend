@@ -175,17 +175,12 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
         image: item.image
       }))));
 
-      // Using HTTPS endpoint from environment variables
       const backendUrl = process.env.REACT_APP_API_URL || 'https://autokraft-backend-production.up.railway.app/api/orders';
       
       const response = await fetch(backendUrl, {
         method: 'POST',
         body: formDataToSend,
-        // Ensure credentials are included if needed
         credentials: 'include',
-        headers: {
-          // Add any required headers here
-        }
       });
 
       if (!response.ok) {
@@ -201,7 +196,6 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
       console.log('Order created:', result);
       setOrderSuccess(true);
       
-      // Clear cart after successful order
       localStorage.removeItem('cart');
     } catch (error) {
       console.error('Checkout error:', error);
@@ -332,18 +326,19 @@ const CheckoutModal = ({ isOpen, closeModal, cartTotal, cart }) => {
                   <div className="payment-details">
                     <div className="payment-qr-container">
                       <img 
-                        src="https://your-secure-domain.com/assets/images/gpay-qr.jpg" 
+                        src="/assets/images/gpay-qr.jpg" 
                         alt="GPay QR Code" 
                         className="payment-qr-code"
                         onError={(e) => {
                           e.target.style.display = 'none';
-                          document.querySelector('.payment-fallback').style.display = 'block';
+                          const fallback = document.querySelector('.payment-fallback');
+                          if (fallback) fallback.style.display = 'block';
                         }}
                       />
-                      <div className="payment-fallback" style={{ display: 'none' }}>
-                        <p><strong>UPI ID:</strong> yourbusiness@upi</p>
-                        <p><strong>Phone:</strong> +91 9876543210</p>
-                        <p><strong>Name:</strong> Your Business Name</p>
+                      <div className="payment-fallback" style={{ display: '' }}>
+                        <p><strong>UPI ID:</strong> josephsebin012@oksbi</p>
+                        <p><strong>Phone:</strong> +91 8075875280</p>
+                        <p><strong>Name:</strong> Autokraft</p>
                       </div>
                     </div>
                     <p className="payment-note">
