@@ -151,9 +151,15 @@ input[type="file"] {
   border: 1px solid #ddd;
   border-radius: 4px;
 }
-.gpay-qr-code {
+.gpay-qr.jpg {
   width: 250px;
   height: auto;
   display: block;
   margin: 0 auto;
+}
+.payment-qr-code {
+  width: 250px;     /* or any size that fits your modal nicely */
+  height: auto;     /* maintains aspect ratio */
+  margin: 0 auto 1rem; /* centers horizontally and keeps bottom margin */
+  display: block;
 }
